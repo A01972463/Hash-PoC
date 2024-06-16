@@ -19,9 +19,9 @@ func main() {
 \    Y    // __ \_\___ \|   Y  \  |   |  \/ /_/  >  |    |   \  ___/|  Y Y  (  <_> )
  \___|_  /(____  /____  >___|  /__|___|  /\___  /  /_______  /\___  >__|_|  /\____/
        \/      \/     \/     \/        \//_____/           \/     \/      \/
-					`)
-	fmt.Println("(This is a demo, inputs are not private, enter 'exit' at any time to quit.)")
-
+						This is a demo, inputs are not private.
+						Enter 'exit' at any time to quit.
+`)
 	for {
 		password := newPassword()
 		testPassword(password)
@@ -35,20 +35,6 @@ func newPassword() string {
 			return password
 		}
 	}
-}
-
-func generate(text string) []byte {
-	start := time.Now()
-
-	hashedText, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
-	if err != nil {
-		fmt.Println("Error: " + err.Error())
-	}
-
-	end := time.Now()
-	fmt.Printf("\nText: %s\nHash: %s\nTime: %s\n\n", text, string(hashedText), end.Sub(start).String())
-
-	return hashedText
 }
 
 func testPassword(password string) {
@@ -65,25 +51,32 @@ func testPassword(password string) {
 	}
 }
 
-func compare(input, password string, hashedPW []byte) {
-	start := time.Now()
-	err := bcrypt.CompareHashAndPassword(hashedPW, []byte(input))
-	if err == nil {
-		end := time.Now()
-		fmt.Println("Password matches")
-		fmt.Printf("Time taken: %s\n", end.Sub(start).String())
-	} else {
-		fmt.Println("Password does not match")
-		end := time.Now()
-		fmt.Printf("Time taken: %s\n", end.Sub(start).String())
-		time.Sleep(time.Second / 2)
-		if showHash := verify("Compare saved hash with input hash?"); showHash {
-			fmt.Printf("\nText: %s\nHash: %s", password, hashedPW)
-			generate(input)
-		} else {
-			fmt.Println()
-		}
+func userInput(prompt string) string {
+	var input string
+
+	fmt.Printf("%s: ", prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	err := scanner.Err()
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	input = scanner.Text()
+
+	if strings.ToLower(input) == "exit" {
+		fmt.Printf(`
+___________.__                   __                          
+\__    ___/|  |__ _____    ____ |  | __  ___.__. ____  __ __ 
+  |    |   |  |  \\__  \  /    \|  |/ / <   |  |/  _ \|  |  \
+  |    |   |   Y  \/ __ \|   |  \    <   \___  (  <_> )  |  /
+  |____|   |___|  (____  /___|  /__|_ \  / ____|\____/|____/ 
+                \/     \/     \/     \/  \/                  
+						`)
+		os.Exit(3)
+	}
+
+	return input
 }
 
 func verify(prompt string) bool {
@@ -103,22 +96,37 @@ func verify(prompt string) bool {
 	}
 }
 
-func userInput(prompt string) string {
-	var input string
+func generate(text string) []byte {
+	start := time.Now()
 
-	fmt.Printf("%s: ", prompt)
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	err := scanner.Err()
+	hashedText, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Error: " + err.Error())
 	}
 
-	input = scanner.Text()
+	end := time.Now()
+	fmt.Printf("\nText: %s\nHash: %s\nTime: %s\n\n", text, string(hashedText), end.Sub(start).String())
 
-	if strings.ToLower(input) == "exit" {
-		os.Exit(3)
+	return hashedText
+}
+
+func compare(input, password string, hashedPW []byte) {
+	start := time.Now()
+	err := bcrypt.CompareHashAndPassword(hashedPW, []byte(input))
+	if err == nil {
+		end := time.Now()
+		fmt.Println("Password matches")
+		fmt.Printf("Time taken: %s\n", end.Sub(start).String())
+	} else {
+		fmt.Println("Password does not match")
+		end := time.Now()
+		fmt.Printf("Time taken: %s\n\n", end.Sub(start).String())
+
+		if showHash := verify("Compare saved hash with input hash?"); showHash {
+			fmt.Printf("\nText: %s\nHash: %s", password, hashedPW)
+			generate(input)
+		} else {
+			fmt.Println()
+		}
 	}
-
-	return input
 }
