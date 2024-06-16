@@ -1,75 +1,124 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
 	fmt.Printf(`
-__________                                               .___   ___ ___               .__    .__                
-\______   \_____    ______ ________  _  _____________  __| _/  /   |   \_____    _____|  |__ |__| ____    ____  
- |     ___/\__  \  /  ___//  ___/\ \/ \/ /  _ \_  __ \/ __ |  /    ~    \__  \  /  ___/  |  \|  |/    \  / ___\ 
- |    |     / __ \_\___ \ \___ \  \     (  <_> )  | \/ /_/ |  \    Y    // __ \_\___ \|   Y  \  |   |  \/ /_/  >
- |____|    (____  /____  >____  >  \/\_/ \____/|__|  \____ |   \___|_  /(____  /____  >___|  /__|___|  /\___  / 
-                \/     \/     \/                          \/         \/      \/     \/     \/        \//_____/  `)
-	fmt.Print("This is a demo, please do not use real passwords.")
-	var input string
-	var verify string
+  ___ ___               .__    .__                 ________
+ /   |   \_____    _____|  |__ |__| ____    ____   \______ \   ____   _____   ____
+/    ~    \__  \  /  ___/  |  \|  |/    \  / ___\   |    |  \_/ __ \ /     \ /  _ \
+\    Y    // __ \_\___ \|   Y  \  |   |  \/ /_/  >  |    |   \  ___/|  Y Y  (  <_> )
+ \___|_  /(____  /____  >___|  /__|___|  /\___  /  /_______  /\___  >__|_|  /\____/
+       \/      \/     \/     \/        \//_____/           \/     \/      \/
+					`)
+	fmt.Println("(This is a demo, inputs are not private, enter 'exit' at any time to quit.)")
+
 	for {
-		fmt.Print("\nCreate new password or enter 'exit' to quit program:\n")
-		fmt.Scanln(&input)
-
-		switch strings.ToLower(input) {
-		case "":
-			fmt.Println("No password entered")
-		case "exit":
-			fmt.Println("Thank you for using this program!")
-			os.Exit(3)
-		default:
-			fmt.Println("\nYou have entered: " + input)
-			fmt.Print("Is this correct? (y/n): ")
-			fmt.Scanln(&verify)
-
-			if strings.ToLower(verify) == "y" {
-				test(input)
-			} else if strings.ToLower(verify) != "n" {
-				fmt.Println("Input not registered")
-				fmt.Println("You have entered: " + input)
-				fmt.Println("Is this correct? (y/n)")
-			}
-		}
-
+		password := newPassword()
+		testPassword(password)
 	}
 }
 
-func test(password string) {
-	fmt.Println("\nYour password is: " + password)
-	var input string
+func newPassword() string {
 	for {
-		input = ""
-		fmt.Println("\nPlease enter your password.\nOr don't, I'm not a cop.\nEnter 'change' to change password\nEnter 'exit' to close program.")
-		fmt.Scanln(&input)
-
-		// time.Sleep(time.Second)
-
-		switch strings.ToLower(input) {
-		case password:
-			fmt.Println("\nPassword entered correctly.")
-			fmt.Println("Hashcode: TODO: generate hash and display")
-			time.Sleep(time.Second)
-		case "change":
-			break
-		case "exit":
-			os.Exit(3)
-		default:
-			fmt.Println("\nYour password: " + password)
-			fmt.Println("Hashcode: TODO generate hash and display")
-			fmt.Println("\nInput: " + input)
-			fmt.Println("Hashcode: TODO generate hash and display")
-			time.Sleep(time.Second)
+		password := userInput("Enter a password")
+		if confirmPW := verify("Verify password"); confirmPW {
+			return password
 		}
 	}
+}
+
+func generate(text string) []byte {
+	start := time.Now()
+
+	hashedText, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+	}
+
+	end := time.Now()
+	fmt.Printf("\nText: %s\nHash: %s\nTime: %s\n\n", text, string(hashedText), end.Sub(start).String())
+
+	return hashedText
+}
+
+func testPassword(password string) {
+	hashedPW := generate(password)
+
+	for {
+		input := userInput("Test password, or 'change' to change password")
+
+		if strings.ToLower(input) == "change" {
+			return
+		} else {
+			compare(input, password, hashedPW)
+		}
+	}
+}
+
+func compare(input, password string, hashedPW []byte) {
+	start := time.Now()
+	err := bcrypt.CompareHashAndPassword(hashedPW, []byte(input))
+	if err == nil {
+		end := time.Now()
+		fmt.Println("Password matches")
+		fmt.Printf("Time taken: %s\n", end.Sub(start).String())
+	} else {
+		fmt.Println("Password does not match")
+		end := time.Now()
+		fmt.Printf("Time taken: %s\n", end.Sub(start).String())
+		time.Sleep(time.Second / 2)
+		if showHash := verify("Compare saved hash with input hash?"); showHash {
+			fmt.Printf("\nText: %s\nHash: %s", password, hashedPW)
+			generate(input)
+		} else {
+			fmt.Println()
+		}
+	}
+}
+
+func verify(prompt string) bool {
+	for {
+		switch verify := userInput(prompt + " (y/n)"); verify {
+		case "y":
+			return true
+		case "n":
+			return false
+		case "":
+			fmt.Println("No input detected.")
+			continue
+		default:
+			fmt.Println("Input not accepted")
+			continue
+		}
+	}
+}
+
+func userInput(prompt string) string {
+	var input string
+
+	fmt.Printf("%s: ", prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	err := scanner.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	input = scanner.Text()
+
+	if strings.ToLower(input) == "exit" {
+		os.Exit(3)
+	}
+
+	return input
 }
